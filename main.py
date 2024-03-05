@@ -3,6 +3,8 @@ from tkinter import ttk
 from tkinter.filedialog import askopenfilenames
 from PIL import Image, ImageTk
 
+THUMBNAIL_SIZE = (250, 250)
+
 
 class App(tk.Tk):
     def __init__(self):
@@ -15,16 +17,20 @@ class Watermark(ttk.Frame):
         super().__init__()
         self.container = container
         self.grid(padx=12, pady=12, column=0, row=0, sticky="N, W, E, S")
-
-        self.photo_to_watermark = ttk.Label(self)
-        self.photo_to_watermark.grid(column=0, row=0, columnspan=3)
-        self.img = Image.open("forest.jpg")
-        self.img_to_watermark = Image.open("forest.jpg")
-        self.img = self.img.resize((1000, 450))
-        self.image = ImageTk.PhotoImage(self.img)
-        self.photo_to_watermark['image'] = self.image
+        # thumbnail image
+        self.thumbnail_img = Image.open("placeholder.png")
+        self.thumbnail_img.thumbnail(THUMBNAIL_SIZE)
+        self.thumbnail_img = ImageTk.PhotoImage(self.thumbnail_img)
+        for n in range(0, 3):
+            self.thumbnail_label = ttk.Label(self, name=f"thumbnail{n + 1}")
+            self.thumbnail_label.grid(column=n, row=0)
+            self.thumbnail_label['image'] = self.thumbnail_img
+        # Image being manipulated by Pillow
+        self.img_to_watermark = Image.open("placeholder.png")
         self.img_list = []
         self.watermarked_imgs = []
+        self.thumbnail_img_list = []
+        # Buttons
         ttk.Button(self, text="Upload Image", command=self.browse).grid(column=0, row=1, sticky="S")
         ttk.Button(self, text="Watermark", command=self.watermark_img).grid(column=1, row=1, sticky="S")
         ttk.Button(self, text="Save Image", command=self.save_img).grid(column=2, row=1, sticky="S")
@@ -37,23 +43,25 @@ class Watermark(ttk.Frame):
                                       ("PNG files", "*.png*"),
                                   ))
 
-        for img in f_path:
-            self.img_to_watermark = Image.open(img)
+        for index, img_path in enumerate(f_path):
+            self.img_to_watermark = Image.open(img_path)
             self.img_list.append(self.img_to_watermark)
 
-        self.img = Image.open(f_path[0])
-        print(self.img.width)
+            self.thumbnail_img = Image.open(img_path)
+            self.thumbnail_img.thumbnail(THUMBNAIL_SIZE)
+            bg_img = Image.open("placeholder.png").copy()
 
-        if self.img.width > 2000 or self.img.height > 1000:
+            overlay_width, overlay_height = self.thumbnail_img.size
+            bg_width, bg_height = bg_img.size
+            offset_x = (bg_width - overlay_width) // 2
+            offset_y = (bg_height - overlay_height) // 2
 
-            width, height = self.img.width / 4, self.img.height / 4
-            self.img = self.img.resize((int(width), int(height)))
-        else:
-            width, height = self.img.width / 4, self.img.height / 4
-            self.img = self.img.resize((int(width), int(height)))
-
-        self.image = ImageTk.PhotoImage(self.img)
-        self.photo_to_watermark['image'] = self.image
+            bg_img.paste(self.thumbnail_img, (offset_x, offset_y))
+            self.thumbnail_img = bg_img
+            self.thumbnail_img = ImageTk.PhotoImage(self.thumbnail_img)
+            self.thumbnail_img_list.append(self.thumbnail_img)
+            if index + 1 < 4:
+                self.nametowidget(f"thumbnail{index + 1}")['image'] = self.thumbnail_img
 
     def watermark_img(self):
 
