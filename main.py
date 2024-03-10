@@ -12,12 +12,12 @@ class App(tk.Tk):
         self.title("Watermarking App")
 
 
-class Watermark(ttk.Frame):
+class WatermarkApp(ttk.Frame):
     def __init__(self, container):
         super().__init__()
         self.container = container
         self.grid(padx=12, pady=12, column=0, row=0, sticky="N, W, E, S")
-        # thumbnail image
+        # Thumbnail image
         self.thumbnail_img_list = []
         self.thumbnail_img = Image.open("placeholder.png")
         self.thumbnail_img.thumbnail(THUMBNAIL_SIZE)
@@ -35,58 +35,75 @@ class Watermark(ttk.Frame):
             col += 1
 
         # Image being manipulated by Pillow
-        self.img_to_watermark = Image.open("placeholder.png")
-        self.img_list = []
+        self.images_to_watermark = []
+        self.images_to_watermark_copy = None
         self.watermarked_imgs = []
         # Buttons
-        ttk.Button(self, text="Upload Image", command=self.browse).grid(column=0, row=3, sticky="S")
-        ttk.Button(self, text="Watermark", command=self.watermark_img).grid(column=1, row=3, sticky="S")
-        ttk.Button(self, text="Save Image", command=self.save_img).grid(column=2, row=3, sticky="S")
+        ttk.Button(self, text="Choose Images", command=self.browse).grid(column=0, row=3, sticky="S")
+        ttk.Button(self, text="Watermark", command=self.watermark_imgs).grid(column=1, row=3, sticky="S")
+        ttk.Button(self, text="Save All", command=self.save_img).grid(column=2, row=3, sticky="S")
+        self.options_var = tk.StringVar()
+        quick_options = ttk.Combobox(self, textvariable=self.options_var)
+        quick_options["values"] = ("Centre", "Corner", "Edge", "Fill")
+        quick_options["state"] = "readonly"
+        quick_options.current(newindex=1)
+        quick_options.grid(column=1, row=4, pady=5)
 
     def browse(self):
-        new_images = []
         f_path = askopenfilenames(initialdir="/",
                                   title="Choose Images",
                                   filetypes=(
                                       ("All Files", "*.*"), ("JPG files", "*.jpg*"), ("JPEG files", "*.jpeg*"),
                                       ("PNG files", "*.png*"),
                                   ))
+        if f_path == "":
+            pass
+        else:
+            self.images_to_watermark = [Image.open(img_path) for i, img_path in enumerate(f_path)]
+            self.change_thumbnails(self.images_to_watermark)
+            self.images_to_watermark_copy = self.images_to_watermark.copy()
 
-        for index, img_path in enumerate(f_path):
-            self.img_to_watermark = Image.open(img_path)
-            self.img_list.append(self.img_to_watermark)
-            new_images.append(Image.open(img_path))
+    def watermark_imgs(self):
+        if self.images_to_watermark != self.images_to_watermark_copy:
+            self.images_to_watermark = self.images_to_watermark_copy.copy()
+            self.watermark_imgs()
+        else:
+            self.watermarked_imgs.clear()
+            watermark = Image.open("watermark-example.png")
+            watermark_opacity = watermark.copy()
+            watermark_opacity.putalpha(90)
+            watermark.paste(watermark_opacity, watermark)
 
-        self.change_thumbnails(new_images)
+            for og_img in self.images_to_watermark:
+                img = og_img.copy()
+                img.putalpha(255)
+                watermark.thumbnail((img.width // 4, img.height // 4))
+                options_dic = {"Centre": ((img.width - watermark.width) // 2,
+                                          (img.height - watermark.height) // 2),
+                               "Corner": (0, 0),
+                               "Edge": (0, (img.height - watermark.height) // 2)}
+                if self.options_var.get() == "Fill":
+                    watermark = watermark.resize(img.size)
+                    img.alpha_composite(im=watermark)
+                    self.watermarked_imgs.append(img)
+                else:
+                    img.alpha_composite(im=watermark, dest=options_dic[self.options_var.get()],
+                                        source=(0, 0))
+                    self.watermarked_imgs.append(img)
 
-    def watermark_img(self):
-        self.watermarked_imgs.clear()
-        watermark = Image.open("watermark-example.png")
-        watermark_opacity = watermark.copy()
-        watermark_opacity.putalpha(90)
-        watermark.paste(watermark_opacity, watermark)
-
-        for img_to_watermark in self.img_list:
-            img_to_watermark.putalpha(255)
-            # watermark = watermark.resize((550, 550))
-            img_to_watermark.alpha_composite(im=watermark, dest=(100, 100), source=(0, 0))
-            self.watermarked_imgs.append(img_to_watermark)
-
-        self.change_thumbnails(self.watermarked_imgs)
-        self.img_list.clear()
+            self.change_thumbnails(self.watermarked_imgs)
+            self.images_to_watermark.clear()
 
     def save_img(self):
-        n = 1
         for index, img in enumerate(self.watermarked_imgs):
-            img.save(fp=f"Watermarked_images/watermarked_image{n}.png")
-            n += 1
+            img.save(fp=f"Watermarked_images/watermarked_image{index}.png")
 
     def change_thumbnails(self, img_list):
         self.thumbnail_img_list = self.thumbnail_img_list[:9]
         for n in range(1, 10):
             self.nametowidget(f"thumbnail{n}")['image'] = self.thumbnail_img_list[0]
         for index, img in enumerate(img_list):
-            self.thumbnail_img = img
+            self.thumbnail_img = img.copy()
             self.thumbnail_img.thumbnail(THUMBNAIL_SIZE)
             bg_img = Image.new("RGB", (250, 250), (221, 221, 221))
 
@@ -105,5 +122,5 @@ class Watermark(ttk.Frame):
 
 if __name__ == "__main__":
     app = App()
-    Watermark(app)
+    WatermarkApp(app)
     app.mainloop()
