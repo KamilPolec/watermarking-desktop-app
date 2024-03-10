@@ -71,12 +71,11 @@ class WatermarkApp(ttk.Frame):
             self.watermark_imgs()
         else:
             self.watermarked_imgs.clear()
-            watermark = Image.open("watermark-example.png")
-            watermark_opacity = watermark.copy()
-            watermark_opacity.putalpha(90)
-            watermark.paste(watermark_opacity, watermark)
-
             for og_img in self.images_to_watermark:
+                watermark = Image.open("watermark-example.png")
+                watermark_opacity = watermark.copy()
+                watermark_opacity.putalpha(90)
+                watermark.paste(watermark_opacity, watermark)
                 img = og_img.copy()
                 img.putalpha(255)
                 watermark.thumbnail((img.width // 4, img.height // 4))
@@ -99,7 +98,6 @@ class WatermarkApp(ttk.Frame):
                         width += w
                         if _ % splits == 0:
                             height += h
-                            print(width, height)
                             width = (w - wm_width) // 2
                 else:
                     img.alpha_composite(im=watermark, dest=options_dic[self.options_var.get()])
