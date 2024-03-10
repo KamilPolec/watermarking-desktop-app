@@ -2,6 +2,8 @@ import tkinter as tk
 from tkinter import ttk
 from tkinter.filedialog import askopenfilenames
 from PIL import Image, ImageTk
+import numpy as np
+
 
 THUMBNAIL_SIZE = (250, 250)
 
@@ -36,7 +38,7 @@ class WatermarkApp(ttk.Frame):
 
         # Image being manipulated by Pillow
         self.images_to_watermark = []
-        self.images_to_watermark_copy = None
+        self.unedited_images = None
         self.watermarked_imgs = []
         # Buttons
         ttk.Button(self, text="Choose Images", command=self.browse).grid(column=0, row=3, sticky="S")
@@ -44,7 +46,7 @@ class WatermarkApp(ttk.Frame):
         ttk.Button(self, text="Save All", command=self.save_img).grid(column=2, row=3, sticky="S")
         self.options_var = tk.StringVar()
         quick_options = ttk.Combobox(self, textvariable=self.options_var)
-        quick_options["values"] = ("Centre", "Corner", "Edge", "Fill")
+        quick_options["values"] = ("Centre", "Corner", "Edge", "Fill", "Repeating")
         quick_options["state"] = "readonly"
         quick_options.current(newindex=1)
         quick_options.grid(column=1, row=4, pady=5)
@@ -61,11 +63,11 @@ class WatermarkApp(ttk.Frame):
         else:
             self.images_to_watermark = [Image.open(img_path) for i, img_path in enumerate(f_path)]
             self.change_thumbnails(self.images_to_watermark)
-            self.images_to_watermark_copy = self.images_to_watermark.copy()
+            self.unedited_images = self.images_to_watermark.copy()
 
     def watermark_imgs(self):
-        if self.images_to_watermark != self.images_to_watermark_copy:
-            self.images_to_watermark = self.images_to_watermark_copy.copy()
+        if self.images_to_watermark != self.unedited_images:
+            self.images_to_watermark = self.unedited_images.copy()
             self.watermark_imgs()
         else:
             self.watermarked_imgs.clear()
@@ -78,18 +80,30 @@ class WatermarkApp(ttk.Frame):
                 img = og_img.copy()
                 img.putalpha(255)
                 watermark.thumbnail((img.width // 4, img.height // 4))
-                options_dic = {"Centre": ((img.width - watermark.width) // 2,
-                                          (img.height - watermark.height) // 2),
+                wm_width, wm_height = watermark.width, watermark.height
+                options_dic = {"Centre": ((img.width - wm_width) // 2,
+                                          (img.height - wm_height) // 2),
                                "Corner": (0, 0),
-                               "Edge": (0, (img.height - watermark.height) // 2)}
+                               "Edge": (0, (img.height - wm_height) // 2)}
                 if self.options_var.get() == "Fill":
                     watermark = watermark.resize(img.size)
                     img.alpha_composite(im=watermark)
-                    self.watermarked_imgs.append(img)
+                elif self.options_var.get() == "Repeating":
+                    splits = 4
+                    arr = np.array(img)
+                    h, w = arr.shape[:2]
+                    h, w = (h // splits), (w // splits)
+                    width, height = (w - wm_width) // 2, (h - wm_height) // 2
+                    for _ in range(1, ((splits*splits) + 1)):
+                        img.alpha_composite(im=watermark, dest=(width, height))
+                        width += w
+                        if _ % splits == 0:
+                            height += h
+                            print(width, height)
+                            width = (w - wm_width) // 2
                 else:
-                    img.alpha_composite(im=watermark, dest=options_dic[self.options_var.get()],
-                                        source=(0, 0))
-                    self.watermarked_imgs.append(img)
+                    img.alpha_composite(im=watermark, dest=options_dic[self.options_var.get()])
+                self.watermarked_imgs.append(img)
 
             self.change_thumbnails(self.watermarked_imgs)
             self.images_to_watermark.clear()
