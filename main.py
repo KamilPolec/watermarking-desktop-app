@@ -4,7 +4,6 @@ from tkinter.filedialog import askopenfilenames
 from PIL import Image, ImageTk
 import numpy as np
 
-
 THUMBNAIL_SIZE = (250, 250)
 
 
@@ -19,7 +18,8 @@ class WatermarkApp(ttk.Frame):
         super().__init__()
         self.container = container
         self.grid(padx=12, pady=12, column=0, row=0, sticky="N, W, E, S")
-        # Thumbnail image
+        # Thumbnail images
+
         self.thumbnail_img_list = []
         self.thumbnail_img = Image.open("placeholder.png")
         self.thumbnail_img.thumbnail(THUMBNAIL_SIZE)
@@ -40,10 +40,15 @@ class WatermarkApp(ttk.Frame):
         self.images_to_watermark = []
         self.unedited_images = None
         self.watermarked_imgs = []
+        self.current_img_view = []
         # Buttons
         ttk.Button(self, text="Choose Images", command=self.browse).grid(column=0, row=3, sticky="S")
         ttk.Button(self, text="Watermark", command=self.watermark_imgs).grid(column=1, row=3, sticky="S")
         ttk.Button(self, text="Save All", command=self.save_img).grid(column=2, row=3, sticky="S")
+        ttk.Button(self, text="Next Page", command=self.next
+                   ).grid(column=2, row=4, sticky="S")
+        ttk.Button(self, text="Previous Page", command=self.previous).grid(column=0, row=4, sticky="S")
+        self.page = 0
         self.options_var = tk.StringVar()
         quick_options = ttk.Combobox(self, textvariable=self.options_var)
         quick_options["values"] = ("Centre", "Corner", "Edge", "Fill", "Repeating")
@@ -62,7 +67,8 @@ class WatermarkApp(ttk.Frame):
             pass
         else:
             self.images_to_watermark = [Image.open(img_path) for i, img_path in enumerate(f_path)]
-            self.change_thumbnails(self.images_to_watermark)
+            self.current_img_view = self.images_to_watermark.copy()
+            self.change_thumbnails(self.current_img_view)
             self.unedited_images = self.images_to_watermark.copy()
 
     def watermark_imgs(self):
@@ -93,7 +99,7 @@ class WatermarkApp(ttk.Frame):
                     h, w = arr.shape[:2]
                     h, w = (h // splits), (w // splits)
                     width, height = (w - wm_width) // 2, (h - wm_height) // 2
-                    for _ in range(1, ((splits*splits) + 1)):
+                    for _ in range(1, ((splits * splits) + 1)):
                         img.alpha_composite(im=watermark, dest=(width, height))
                         width += w
                         if _ % splits == 0:
@@ -103,7 +109,8 @@ class WatermarkApp(ttk.Frame):
                     img.alpha_composite(im=watermark, dest=options_dic[self.options_var.get()])
                 self.watermarked_imgs.append(img)
 
-            self.change_thumbnails(self.watermarked_imgs)
+            self.current_img_view = self.watermarked_imgs.copy()
+            self.change_thumbnails(self.current_img_view)
             self.images_to_watermark.clear()
 
     def save_img(self):
@@ -111,10 +118,12 @@ class WatermarkApp(ttk.Frame):
             img.save(fp=f"Watermarked_images/watermarked_image{index}.png")
 
     def change_thumbnails(self, img_list):
+        # adds placeholder image to unoccupied spaces
         self.thumbnail_img_list = self.thumbnail_img_list[:9]
         for n in range(1, 10):
             self.nametowidget(f"thumbnail{n}")['image'] = self.thumbnail_img_list[0]
-        for index, img in enumerate(img_list):
+        # Sets images for the thumbnails
+        for index, img in enumerate(img_list[self.page:]):
             self.thumbnail_img = img.copy()
             self.thumbnail_img.thumbnail(THUMBNAIL_SIZE)
             bg_img = Image.new("RGB", (250, 250), (221, 221, 221))
@@ -130,6 +139,18 @@ class WatermarkApp(ttk.Frame):
             self.thumbnail_img_list.append(self.thumbnail_img)
             if index < 9:
                 self.nametowidget(f"thumbnail{index + 1}")['image'] = self.thumbnail_img
+
+    def next(self):
+        if self.page < len(self.current_img_view) - 9:
+            self.page += 9
+            print(f"Page: {(self.page + 9) // 9}")
+            self.change_thumbnails(img_list=self.current_img_view)
+
+    def previous(self):
+        if self.page > 0:
+            self.page -= 9
+            print(f"Page: {(self.page + 9) // 9}")
+            self.change_thumbnails(img_list=self.current_img_view)
 
 
 if __name__ == "__main__":
